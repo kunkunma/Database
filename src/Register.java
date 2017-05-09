@@ -13,9 +13,11 @@ public class Register {
     String insertEditor = "INSERT INTO EDITOR VALUES (null,";
     String insertReviewer = "INSERT INTO REVIEWER VALUES (null,";
     String role;
+    String insertRIC = "INSERT INTO INTEREST VALUES (";
 
     public Register(){
     }
+
     //This method start register for a new author, reviewer, or editor
     //need to consider what to do after inserting info???????????????
     public void registerProcess(){
@@ -58,10 +60,17 @@ public class Register {
             insertReviewer = insertReviewer + "'"+array[i] + "'" + ",";
         }
         insertReviewer = insertReviewer + "'" + array[i] +  "'" +  ")";
-        int id = connectToDBAndInsert(insertReviewer,null,null,null,0);
+
+        //get inserted reviewer id
+        int rid = connectToDBAndInsert(insertReviewer,null,null,null,0);
 
         //insert RICode into Table interest, at most 3
-
+        System.out.println("\nPlease input your RIcode:");
+        line = in.nextLine();
+        array = line.split(",");
+        for (i=0; i<array.length && i<3; i++) {
+            connectToDBAndInsert(insertRIC + rid + "," + array[i]+ ")", null,null,null,0);
+        }
 
     }
 
@@ -97,8 +106,8 @@ public class Register {
         connectToDBAndInsert(insertAuthor,null,null,null,0);
     }
 
-    public static int connectToDBAndInsert(String QUERY, Connection con, Statement stmt, ResultSet res, int numColumns) {
-        int id=-1;
+    public static int connectToDBAndInsert(String QUERY, Connection con, PreparedStatement stmt, ResultSet res, int numColumns) {
+        int id = -1;
         try {
             // load mysql driver
             Class.forName("com.mysql.jdbc.Driver").newInstance();
@@ -109,10 +118,15 @@ public class Register {
             System.out.println("Connection established.");
 
             // initialize a query statement
-            stmt = con.createStatement();
+            stmt = con.prepareStatement(QUERY, stmt.RETURN_GENERATED_KEYS);
             // query db and save results
-            id = stmt.executeUpdate(QUERY);
+            stmt.executeUpdate();
+            //get generate id
 
+            res = stmt.getGeneratedKeys();
+            if(res.next()) {
+                id = res.getInt(1);
+            }
             System.out.format("Query executed: '%s'\n\ninsertID:%d\n", QUERY,id);
             System.out.println("Data already insert...");
 
@@ -127,8 +141,12 @@ public class Register {
                 stmt.close();
                 res.close();
                 System.out.print("\nConnection terminated.");
-            } catch (Exception e) { /* ignore cleanup errors */ }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
         return id;
     }
+
+
 }
