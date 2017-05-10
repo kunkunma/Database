@@ -1,6 +1,5 @@
-import sun.org.mozilla.javascript.internal.ast.ScriptNode;
-
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 /**
@@ -15,8 +14,9 @@ public class Login {
     String AuthorQuery = "SELECT AUT_FN,AUT_LN,AUT_MAILING_ADDR FROM AUTHOR " +
             "WHERE AUT_ID = ";
     String AuthorStatusViewQuery = "Select * FROM LeadAuthorManuscripts WHERE AUT_ID = ";
+    String AuthorDeleteManuQuery = "DELETE FROM MANUSCRIPT WHERE MANU_ID =";
     String role;
-
+    ArrayList<Integer> retrieveAuthorID;
     public void loginProcess() {
         Scanner in = new Scanner(System.in);
         System.out.println("Are you login as author, editor or reviewer?");
@@ -54,17 +54,76 @@ public class Login {
         System.out.println("Please input your author id:");
         Scanner in = new Scanner(System.in);
         String id = in.nextLine();
-        connectToDBAndQuery(AuthorQuery + id, null,null,null,0);
+        connectToDBAndQuery(AuthorQuery + id, null,null,null,0,0);
         System.out.println("\nPlease input status command to get all the info");
         String command  = in.nextLine();
         if(command.equals("status")){
-            connectToDBAndQuery(AuthorStatusViewQuery + id,null,null,null,0);
+            connectToDBAndQuery(AuthorStatusViewQuery + id,null,null,null,0,1);
         }
 
+        //retract a manuscript
+        System.out.println("Type in Retract if you want to retract");
 
+        command = in.nextLine();
+        if (command.equals("retract")){
+            System.out.println("\nWhich paper do you want to retract? please input the paper id");
+
+            while (true) {
+                int deleteID = Integer.parseInt(in.nextLine());
+                //check if the input id contains in the
+                if (retrieveAuthorID.contains(deleteID)){
+                    System.out.println("Are you sure?");
+                    command = in.nextLine();
+                    if (command.equals("yes")) {
+                        connectToDBAndDelete(AuthorDeleteManuQuery + deleteID,null,null);
+                        break;
+                    }
+                }
+                else {
+                    System.out.println("Please input correct id!");
+                }
+            }
+        }
     }
 
-    public static void connectToDBAndQuery(String QUERY, Connection con, Statement stmt, ResultSet res, int numColumns) {
+    private void connectToDBAndDelete(String QUERY, Connection con, Statement stmt) {
+        try {
+            // load mysql driver
+            Class.forName("com.mysql.jdbc.Driver").newInstance();
+
+            // initialize connection
+            con = DriverManager.getConnection(SERVER+DATABASE, USERNAME, PASSWORD);
+
+            System.out.println("Connection established.");
+
+
+            // initialize a query statement
+            stmt = con.createStatement();
+            // query db and save results
+            stmt.executeUpdate(QUERY);
+            //get generate id
+
+            System.out.format("Query executed: '%s'\n", QUERY);
+
+        } catch (SQLException e ) {          // catch SQL errors
+            System.err.format("SQL Error: %s", e.getMessage());
+        } catch (Exception e) {              // anything else
+            e.printStackTrace();
+        } finally {
+            // cleanup
+            try {
+                con.close();
+                stmt.close();
+                System.out.print("\nConnection terminated.");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    public void connectToDBAndQuery(String QUERY, Connection con, Statement stmt, ResultSet res, int numColumns,int flag) {
+        ArrayList<Integer> id = new ArrayList<>();
         try {
             // load mysql driver
             Class.forName("com.mysql.jdbc.Driver").newInstance();
@@ -79,7 +138,7 @@ public class Login {
             // query db and save results
             res = stmt.executeQuery(QUERY);
 
-            System.out.format("Query executed: '%s'\n\nResults:\n", QUERY);
+            System.out.format("Query executed: '%s'\n\nresult:\n", QUERY);
 
             // the result set contains metadata
             numColumns = res.getMetaData().getColumnCount();
@@ -92,11 +151,16 @@ public class Login {
 
             // iterate through results
             while(res.next()) {
+                if (flag==1) {
+                    id.add(res.getInt(7));
+                }
                 for(int i = 1; i <= numColumns; i++) {
                     System.out.format("%-12s", res.getObject(i));
                 }
                 System.out.println("");
             }
+            this.retrieveAuthorID = id;
+
         } catch (SQLException e ) {          // catch SQL errors
             System.err.format("SQL Error: %s", e.getMessage());
         } catch (Exception e) {              // anything else
